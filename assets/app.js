@@ -3,6 +3,9 @@
 
   const FORMSPREE_URL = "https://formspree.io/f/mjgpkvqw";
 
+  const SUPPORT_MESSAGE_MIN_LENGTH = 25;
+  const SUPPORT_EMAIL_PATTERN = "[^\\s@]+@[^\\s@]+\\.[^\\s@]+";
+
   const SUPPORT_TOPICS = [
     "General support",
     "Export data",
@@ -85,6 +88,19 @@
     return s.replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
     );
+  }
+
+  function applySupportFieldValidity(el) {
+    el.setCustomValidity("");
+    if (el.validity.valueMissing) {
+      el.setCustomValidity("This field is required.");
+    } else if (el.name === "email" && (el.validity.typeMismatch || el.validity.patternMismatch)) {
+      el.setCustomValidity("Please enter a valid email address.");
+    } else if (el.name === "message" && el.validity.tooShort) {
+      el.setCustomValidity(
+        `Please provide at least ${SUPPORT_MESSAGE_MIN_LENGTH} characters so we can help.`
+      );
+    }
   }
 
   function renderHome() {
@@ -188,10 +204,36 @@
           <input type="text" name="_gotcha" class="support-form__honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
 
           <div class="support-form__field">
+            <label class="support-form__label" for="name">Name</label>
+            <input
+              class="support-form__input"
+              type="text"
+              id="name"
+              name="name"
+              autocomplete="name"
+              required
+            />
+          </div>
+
+          <div class="support-form__field">
+            <label class="support-form__label" for="email">Email</label>
+            <input
+              class="support-form__input"
+              type="email"
+              id="email"
+              name="email"
+              autocomplete="email"
+              pattern="${SUPPORT_EMAIL_PATTERN}"
+              title="Please enter a valid email address."
+              required
+            />
+          </div>
+
+          <div class="support-form__field">
             <label class="support-form__label" for="reason">How can we help?</label>
             <div class="support-form__select-wrap">
               <select class="support-form__select" id="reason" name="reason" required>
-                <option value="" disabled selected>Select an option</option>
+                <option value="" disabled selected hidden>Select an option</option>
                 ${options}
               </select>
             </div>
@@ -204,6 +246,8 @@
               id="message"
               name="message"
               rows="8"
+              minlength="${SUPPORT_MESSAGE_MIN_LENGTH}"
+              title="Please provide at least ${SUPPORT_MESSAGE_MIN_LENGTH} characters."
               placeholder="Share the details..."
               required
             ></textarea>
@@ -229,6 +273,20 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      for (const el of form.querySelectorAll("input, select, textarea")) {
+        if (el.type === "hidden" || el.name === "_gotcha") continue;
+        if (el.tagName !== "SELECT" && typeof el.value === "string") {
+          el.value = el.value.trim();
+        }
+        applySupportFieldValidity(el);
+      }
+
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
       status.textContent = "";
       status.className = "support-form__note";
       submitBtn.disabled = true;
